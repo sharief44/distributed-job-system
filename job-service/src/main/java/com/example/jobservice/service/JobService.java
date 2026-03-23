@@ -15,10 +15,12 @@ import com.example.jobservice.repository.JobRepository;
 public class JobService {
 
     private final JobRepository jobRepository;
+    private final KafkaProducerService kafkaProducerService;
 
     // Constructor Injection
-    public JobService(JobRepository jobRepository) {
+    public JobService(JobRepository jobRepository,KafkaProducerService kafkaProducerService) {
         this.jobRepository = jobRepository;
+        this.kafkaProducerService=kafkaProducerService;
     }
 
     public Job createJob(CreateJobRequest request) {
@@ -30,8 +32,12 @@ public class JobService {
         job.setRetryCount(0);
         job.setCreatedAt(LocalDateTime.now());
         job.setUpdatedAt(LocalDateTime.now());
+        
+        Job savedJob = jobRepository.save(job);
+        
+        kafkaProducerService.sendJob(savedJob);
 
-        return jobRepository.save(job);
+        return savedJob;
     }
 
     public Job getJob(String jobId) {
@@ -42,4 +48,8 @@ public class JobService {
     public List<Job> getAllJobs() {
         return jobRepository.findAll();
     }
+    
+
+
+    
 }
