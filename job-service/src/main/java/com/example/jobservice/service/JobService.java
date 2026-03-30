@@ -16,11 +16,14 @@ public class JobService {
 
     private final JobRepository jobRepository;
     private final KafkaProducerService kafkaProducerService;
+    private final RedisService redisService;
 
     public JobService(JobRepository jobRepository,
-                      KafkaProducerService kafkaProducerService) {
+                      KafkaProducerService kafkaProducerService,
+                      RedisService redisService) {
         this.jobRepository = jobRepository;
         this.kafkaProducerService = kafkaProducerService;
+        this.redisService=redisService;
     }
 
     public Job createJob(CreateJobRequest request) {
@@ -47,8 +50,22 @@ public class JobService {
     }
 
     public Job getJob(String jobId) {
-        return jobRepository.findById(jobId)
+
+        // 1️⃣ Check cache
+        Job cachedJob = (Job) redisService.getJob(jobId);
+        if (cachedJob != null) {
+            System.out.println("Returning from Redis");
+            return cachedJob;
+        }
+
+        // 2️⃣ Fetch from DB
+        Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new RuntimeException("Job not found"));
+
+        // 3️⃣ Save to cache
+        redisService.saveJob(jobId, job);
+
+        return job;
     }
 
     public List<Job> getAllJobs() {
